@@ -1,17 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { Input } from '../ui/input';
 
-const DestAutocomplete = () => {
-    const [query, setQuery] = useState('');
+// Props:
+// - value: optional string to show in the input
+// - onChange: function(value: string) called when the input changes
+// - onSelect: function(place) called when a suggestion is clicked (place is the nominatim result object)
+const DestAutocomplete = ({ value, onChange, onSelect }) => {
+    const [query, setQuery] = useState(value || '');
     const [suggestions, setSuggestions] = useState([]);
 
+    // Keep internal query in sync when parent value changes
+    useEffect(() => {
+        if (value !== undefined && value !== null) {
+            // If parent passed an object with display_name, show that, otherwise assume string
+            const newVal = typeof value === 'string' ? value : value?.display_name || '';
+            setQuery(newVal);
+        }
+    }, [value]);
+
     const handleChange = (e) => {
-        setQuery(e.target.value);
+        const v = e.target.value;
+        setQuery(v);
+        if (typeof onChange === 'function') onChange(v);
     };
 
     // Fetch suggestions when query changes (debounced)
     useEffect(() => {
-        if (query.length < 2) {
+        if (!query || query.length < 2) {
             setSuggestions([]);
             return;
         }
@@ -19,7 +34,7 @@ const DestAutocomplete = () => {
         const timeout = setTimeout(async () => {
             try {
                 const res = await fetch(
-                    `https://nominatim.openstreetmap.org/search?format=json&q=${query}`
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`
                 );
                 const data = await res.json();
 
@@ -36,8 +51,10 @@ const DestAutocomplete = () => {
     }, [query]);
 
     const handleSelect = (place) => {
-        setQuery(place.display_name);
+        const label = place.display_name;
+        setQuery(label);
         setSuggestions([]);
+        if (typeof onSelect === 'function') onSelect(place);
     };
 
     return (
